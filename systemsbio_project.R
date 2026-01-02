@@ -34,7 +34,7 @@ Full_ExpressionData <- exprs(eset)
 # Grup Etiketlerini Oluşturma
 pdata <- pData(eset)
 Full_GroupVector <- rep(NA, nrow(pdata))
-Full_GroupVector[grep("healthy", pdata$source_name_ch1, ignore.case = TRUE)] <- "Healthy"
+Full_GroupVector[grep("normal", pdata$source_name_ch1, ignore.case = TRUE)] <- "Normal"
 Full_GroupVector[grep("tumor|cancer|adenocarcinoma", pdata$source_name_ch1, ignore.case = TRUE)] <- "Tumor"
 
 valid_idx <- !is.na(Full_GroupVector)
@@ -43,18 +43,18 @@ Full_GroupVector <- Full_GroupVector[valid_idx]
 
 # --- RASTGELE SEÇİM (SUBSAMPLING) ---
 cat("Bilgisayarın çökmemesi için 20 Healthy + 20 Tumor seçiliyor...\n")
-set.seed(123) 
+set.seed(102) 
 
-healthy_indices <- which(Full_GroupVector == "Healthy")
+normal_indices <- which(Full_GroupVector == "Normal")
 tumor_indices <- which(Full_GroupVector == "Tumor")
 
 n_select <- 20
-sel_healthy <- sample(healthy_indices, min(length(healthy_indices), n_select))
+sel_normal <- sample(normal_indices, min(length(normal_indices), n_select))
 sel_tumor <- sample(tumor_indices, min(length(tumor_indices), n_select))
 
-selected_indices <- c(sel_healthy, sel_tumor)
+selected_indices <- c(sel_normal, sel_tumor)
 ExpressionData <- Full_ExpressionData[, selected_indices]
-GroupVector <- factor(Full_GroupVector[selected_indices], levels = c("Healthy", "Tumor"))
+GroupVector <- factor(Full_GroupVector[selected_indices], levels = c("Normal", "Tumor"))
 
 cat("Analiz toplam", ncol(ExpressionData), "örnek ile devam ediyor.\n")
 
@@ -69,8 +69,8 @@ pc2_var <- round(pca_summary$importance[2,2] * 100, 2)
 
 pca_df <- data.frame(PC1 = pca_res$x[,1], PC2 = pca_res$x[,2], Group = GroupVector)
 
-plot(pca_df$PC1, pca_df$PC2, col = ifelse(pca_df$Group=="Healthy", "green", "red"),
-     pch = 19, main = "PCA: Healthy vs Tumor (Subsampled)", 
+plot(pca_df$PC1, pca_df$PC2, col = ifelse(pca_df$Group=="Normal", "green", "red"),
+     pch = 19, main = "PCA: Normal vs Tumor (Subsampled)", 
      xlab = paste0("PC1 (", pc1_var, "%)"), ylab = paste0("PC2 (", pc2_var, "%)"))
 legend("topright", legend=levels(GroupVector), col=c("green", "red"), pch=19)
 
@@ -80,7 +80,7 @@ legend("topright", legend=levels(GroupVector), col=c("green", "red"), pch=19)
 cat("Diferansiyel Gen İfadesi (DEG) Analizi yapılıyor...\n")
 p_values <- apply(ExpressionData, 1, function(x) {
   if(var(x) == 0) return(1)
-  t.test(x[GroupVector == "Healthy"], x[GroupVector == "Tumor"])$p.value
+  t.test(x[GroupVector == "Normal"], x[GroupVector == "Tumor"])$p.value
 })
 
 p_adj <- p.adjust(p_values, method = "BH")
@@ -190,7 +190,7 @@ pheatmap(DEG_Data_Heatmap,
 # ------------------------------------------------------------------------------
 cat("SVM Modeli çalıştırılıyor...\n")
 # Son 5'er örneği test için ayır
-test_indices <- c(which(GroupVector=="Healthy")[20], which(GroupVector=="Tumor")[20])
+test_indices <- c(which(GroupVector=="Normal")[20], which(GroupVector=="Tumor")[20])
 
 svm_model <- svm(t(DEG_Data[, -test_indices]), GroupVector[-test_indices], kernel = "linear")
 preds <- predict(svm_model, t(DEG_Data[, test_indices]))
@@ -239,10 +239,10 @@ build_network_with_score <- function(expression_matrix, gene_names) {
   if(length(results_list) > 0) return(do.call(rbind, results_list)) else return(NULL)
 }
 
-cat("Healthy Grubu Ağı:\n")
-data_healthy_sub <- ExpressionData[top5_genes, GroupVector == "Healthy"]
-net_healthy <- build_network_with_score(data_healthy_sub, top5_genes)
-if(!is.null(net_healthy)) print(net_healthy) else print("Healthy grubunda bağlantı yok.")
+cat("Normal Grubu Ağı:\n")
+data_normal_sub <- ExpressionData[top5_genes, GroupVector == "Normal"]
+net_normal <- build_network_with_score(data_healthy_sub, top5_genes)
+if(!is.null(net_healthy)) print(net_healthy) else print("Normal grubunda bağlantı yok.")
 
 cat("\nTumor Grubu Ağı:\n")
 data_tumor_sub <- ExpressionData[top5_genes, GroupVector == "Tumor"]
@@ -257,3 +257,4 @@ gene_symbols <- mapIds(hgu219.db, keys = top5_genes, column = "SYMBOL", keytype 
 print(data.frame(ProbeID = top5_genes, GeneSymbol = gene_symbols))
 
 cat("\nBütün analizler başarıyla tamamlandı.\n")
+
